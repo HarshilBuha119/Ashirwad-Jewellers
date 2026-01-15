@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "337803005366",
+    "firebase_url": "https://moneymates-7bb1b-default-rtdb.firebaseio.com",
+    "project_id": "moneymates-7bb1b",
+    "storage_bucket": "moneymates-7bb1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337803005366:android:0346e3b1ddc26b7db2c517",
+        "android_client_info": {
+          "package_name": "com.moneymatess"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "337803005366-ldcveo8je1sld0vgmn839op18d7ufj01.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moneymatess",
+            "certificate_hash": "c0894ec17c3e9fc1901d4bfa987f0c6b5f3edb6a"
+          }
+        },
+        {
+          "client_id": "337803005366-hlkdut89nsphkpf4g073eejusr6j0jrg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoALwfLFj3KiQdasrymL76Dir261MemUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "337803005366-hlkdut89nsphkpf4g073eejusr6j0jrg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
