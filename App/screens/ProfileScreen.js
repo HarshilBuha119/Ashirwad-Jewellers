@@ -103,14 +103,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginHorizontal: Spacing.lg,
     paddingVertical: 16,
-    borderRadius: 18,
-    backgroundColor: "#FEE2E2",
+    borderRadius: 12,
+    backgroundColor: Colors.text,
     alignItems: "center",
     marginBottom: 120, // for floating tab bar
   },
   logoutText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#DC2626",
+    color: Colors.white,
   },
 });

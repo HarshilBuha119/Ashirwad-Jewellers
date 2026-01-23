@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, FlatList, StatusBar, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, FlatList, StatusBar, RefreshControl, ImageBackground } from "react-native";
 import HomeHeader from "../components/HomeHeader";
 import PromoBanner from "../components/PromoBanner";
 import CategoryItem from "../components/CategoryItem";
 import ProductCard from "../components/ProductCard";
+import Poster from "../components/Poster";
 import { categories } from "../data/homeData";
 import Colors from "../theme/Colors";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,6 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 import { fetchJewellary } from "../services/jewellaryService";
 import Loader from "../components/Loader";
 import { useUserFavorites } from "../hooks/useStore";
+import { Images } from "../../assets/images";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -64,16 +66,21 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+
       <HomeHeader />
       <Loader visible={loading} />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
         <PromoBanner />
-
+        <Poster
+          title="20% OFF ALL GOLD"
+          subtitle="Limited Time Offer"
+          image={Images.OfferPoster} // Ensure this image exists in your assets
+          onBtnPress={() => console.log("Offer Claimed")}
+        />
         {/* Category Section */}
         <View style={styles.section}>
           <View style={styles.row}>
@@ -140,6 +147,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  bgImage: {
+    height: "100%",
+    width: "100%",
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glassCard: {
+    width: '100%',
+    height: "100%",
+    borderRadius: 20,
+    overflow: 'hidden', // Required for BlurView to respect border radius
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)', // This creates the "edge" of the glass
+  },
   section: {
     marginTop: 24,
   },
@@ -152,11 +173,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: Colors.primary,
+    color: Colors.text,
   },
   seeAll: {
     fontSize: 13,
-    color: "#F97316",
+    color: Colors.text,
     fontWeight: "500",
   },
 });

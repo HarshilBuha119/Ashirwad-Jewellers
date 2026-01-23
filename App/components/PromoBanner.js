@@ -4,6 +4,7 @@ import { Images } from "../../assets/images";
 import AppImage from "./AppImage";
 import FastImage from "@d11/react-native-fast-image";
 import { useNavigation } from "@react-navigation/native";
+import Colors from "../theme/Colors";
 
 export default function PromoBanner() {
   const navigation = useNavigation()
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
   },
   button: {
     position: "absolute",
-    backgroundColor: "#F97316",
+    backgroundColor: Colors.text,
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,

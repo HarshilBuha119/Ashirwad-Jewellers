@@ -5,8 +5,9 @@ import AppImage from "./AppImage";
 import { useNavigation } from "@react-navigation/native";
 import { useToggleFavorite } from "../hooks/useStore";
 import FastImage from "@d11/react-native-fast-image";
+import Colors from "../theme/Colors";
 
-const ProductCard = memo(({ item, grid, isFav }) => {
+const ProductCard = memo(({ item, grid, isFav ,img}) => {
   const navigation = useNavigation();
   const { mutate: toggleFav } = useToggleFavorite();
 
@@ -51,7 +52,7 @@ const ProductCard = memo(({ item, grid, isFav }) => {
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={26}
-            color={isFav ? "#EF4444" : "#111827"}
+            color={isFav ? Colors.text : "#111827"}
           />
         </Animated.View>
       </TouchableOpacity>
@@ -59,7 +60,7 @@ const ProductCard = memo(({ item, grid, isFav }) => {
       <TouchableOpacity
         onPress={() => navigation.navigate("ProductDetail", { product: item })}
       >
-        <AppImage source={{ uri: item.main_image }} style={styles.image} resizeMode={FastImage.resizeMode.contain}/>
+        <AppImage source={{ uri: item.main_image }} style={[img?[styles.image,{height:img}]:styles.image]} resizeMode={FastImage.resizeMode.cover}/>
         <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
         <Text style={styles.brand}>by {item.brand}</Text>
         <Text style={styles.price}>₹{item.price}</Text>
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: Colors.text,
     height: 20,
   },
   card: {
@@ -92,16 +93,15 @@ const styles = StyleSheet.create({
   },
   heart: {
     position: "absolute",
-    top: 10,
+    bottom: 10,
     right: 10,
-    zIndex: 10,
-  },
+    zIndex: 10,  },
   image: {
     width: "100%",
-    height: 140,
+    height: 150,
     resizeMode: "contain",
     marginBottom: 8,
-    borderRadius: 12
+    borderRadius: 12,
 
   },
   brand: {

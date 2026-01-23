@@ -5,6 +5,7 @@ import ProductDetailScreen from "../screens/ProductDetailScreen";
 import ProductsScreen from "../screens/ProductsScreen";
 import FavoritesScreen from "../screens/FavouritesScreen";
 import PaymentScreen from "../screens/PaymentScreen";
+import SplashScreen from "../screens/SplashScreen";
 import OrderScreen from "../screens/OrderScreen";
 import UploadJewellaryScreen from '../screens/UploadJewellaryScreen';
 import CartScreen from "../screens/CartScreen";
@@ -21,6 +22,7 @@ export default function AppNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
         <>
+        <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Tabs" component={TabNavigator} />
           <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />

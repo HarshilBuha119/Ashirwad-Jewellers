@@ -28,7 +28,7 @@ export default function OrdersScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerCard}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#000" />
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Orders</Text>
@@ -41,7 +41,7 @@ export default function OrdersScreen({ navigation }) {
         keyExtractor={(o) => o.id}
         refreshing={isLoading}
         onRefresh={refetch}
-        contentContainerStyle={{ padding: 16 }}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           // ... inside FlatList renderItem
           <View style={styles.orderCard}>
@@ -68,6 +68,7 @@ export default function OrdersScreen({ navigation }) {
                   <Text style={styles.itemTotal}>₹{(it.price * it.quantity).toFixed(2)}</Text>
                 </View>
               )}
+              showsVerticalScrollIndicator={false}
             />
 
             <View style={styles.summary}>
@@ -85,7 +86,7 @@ export default function OrdersScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
+  container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 20,paddingTop:20 },
   headerCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
+    color: Colors.text,
   },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background },
   emptyText: { color: "#6B7280", fontSize: 18 },

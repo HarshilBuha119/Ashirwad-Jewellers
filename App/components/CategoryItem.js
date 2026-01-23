@@ -2,6 +2,7 @@ import React from "react";
 import { Text, StyleSheet, TouchableOpacity, View } from "react-native";
 import AppImage from "./AppImage";
 import FastImage from "@d11/react-native-fast-image";
+import Colors from "../theme/Colors";
 
 export default function CategoryItem({ item, isSelected, onPress }) {
   return (
@@ -43,7 +44,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   imageWrapperSelected: {
-    borderColor: "#D4AF37", // Gold border when selected
+    borderColor: Colors.text, // Gold border when selected
   },
   image: {
     width: 65,
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   textSelected: {
-    color: "#111827",
+    color: Colors.text,
     fontWeight: "800",
   },
 });

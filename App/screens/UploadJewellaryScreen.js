@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useState, useRef } from "react";
 import {
     View,
     Text,
@@ -9,429 +10,301 @@ import {
     Image,
     Alert,
     StatusBar,
-    Modal,
-    FlatList
+    Animated, // Added for smooth bar animation
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { launchImageLibrary } from "react-native-image-picker";
 import Colors from "../theme/Colors";
-import Spacing from "../theme/Spacing";
 import Loader from "../components/Loader";
 import { supabase } from "../lib/supabase";
 import { decode } from 'base64-arraybuffer';
 import RNFS from 'react-native-fs';
-import { categories } from "../data/homeData"
 import LinearGradient from "react-native-linear-gradient";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
-export default function UploadJewellaryScreen() {
+export default function AdminUploadScreen() {
     const [loading, setLoading] = useState(false);
-    const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-    // Form States
-    const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
-    const [price, setPrice] = useState("");
-    const [brand, setBrand] = useState("");
-    const [category, setCategory] = useState("");
-    const [itemNumber, setItemNumber] = useState("");
-    // Image States
-    const [mainImage, setMainImage] = useState(null);
-    const [galleryImages, setGalleryImages] = useState([]);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const progressAnim = useRef(new Animated.Value(0)).current;
 
-    const renderCategoryItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.modalItem}
-            onPress={() => {
-                setCategory(item.title);
-                setCategoryModalVisible(false);
-            }}
-        >
-            <Text style={[
-                styles.modalItemText,
-                category === item.title && { color: Colors.primary, fontWeight: 'bold' }
-            ]}>
-                {item.title}
-            </Text>
-        </TouchableOpacity>
-    );
+    // Banner/Offer States
+    const [festivalName, setFestivalName] = useState("");
+    const [discountText, setDiscountText] = useState("");
+    const [buttonText, setButtonText] = useState("Shop Now");
 
-    /* -------------------- Image Pickers -------------------- */
+    // Media States
+    const [bannerImage, setBannerImage] = useState(null);
+    const [bannerVideo, setBannerVideo] = useState(null);
 
-    const pickMainImage = async () => {
-        const res = await launchImageLibrary({ mediaType: "photo", quality: 0.7 });
+    // Animate the bar whenever progress changes
+    React.useEffect(() => {
+        Animated.timing(progressAnim, {
+            toValue: uploadProgress,
+            duration: 300,
+            useNativeDriver: false,
+        }).start();
+    }, [uploadProgress]);
+
+    /* -------------------- Media Pickers -------------------- */
+
+    const pickImage = async () => {
+        const res = await launchImageLibrary({ mediaType: "photo", quality: 0.8 });
         if (!res.didCancel && res.assets?.length) {
-            setMainImage(res.assets[0]);
+            setBannerImage(res.assets[0]);
+            setBannerVideo(null);
         }
     };
 
-    const pickGalleryImages = async () => {
-        const res = await launchImageLibrary({
-            mediaType: "photo",
-            selectionLimit: 5,
-            quality: 0.7
-        });
+    const pickVideo = async () => {
+        const res = await launchImageLibrary({ mediaType: "video", videoQuality: 'medium' });
         if (!res.didCancel && res.assets?.length) {
-            setGalleryImages(res.assets);
+            setBannerVideo(res.assets[0]);
+            setBannerImage(null);
         }
     };
 
     /* -------------------- Upload Logic -------------------- */
 
-    const processAndUpload = async (asset, folder) => {
+    const uploadFile = async (asset, folder) => {
         try {
-            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+            const ext = asset.type.split('/')[1] || 'jpg';
+            const fileName = `${Date.now()}.${ext}`;
             const filePath = `${folder}/${fileName}`;
 
-            // Convert URI to Base64 then to ArrayBuffer (Fixes body.has error)
+            // Start Progress Simulation
+            setUploadProgress(10);
+            const interval = setInterval(() => {
+                setUploadProgress((prev) => (prev < 90 ? prev + 5 : prev));
+            }, 500);
+
             const base64 = await RNFS.readFile(asset.uri, 'base64');
 
             const { error: uploadError } = await supabase.storage
-                .from("jewellary-images")
+                .from("banner-images")
                 .upload(filePath, decode(base64), {
-                    contentType: asset.type || 'image/jpeg',
+                    contentType: asset.type,
                 });
 
+            clearInterval(interval);
             if (uploadError) throw uploadError;
 
-            // Get the Public URL to store in the Database
+            setUploadProgress(100);
+
             const { data } = supabase.storage
-                .from("jewellary-images")
+                .from("banner-images")
                 .getPublicUrl(filePath);
 
             return data.publicUrl;
         } catch (err) {
-            console.error("Upload process error:", err);
+            setUploadProgress(0);
             throw err;
         }
     };
 
-    const handleSubmit = async () => {
-        if (!name || !price || !category || !mainImage) {
-            Alert.alert("Error", "Please fill name, price, category and select a main image");
+    const handleUploadBanner = async () => {
+        if (!festivalName || !discountText || (!bannerImage && !bannerVideo)) {
+            Alert.alert("Error", "Please fill all fields and select media");
             return;
         }
 
         try {
             setLoading(true);
-            const folderName = category.toLowerCase().trim();
+            let mediaUrl = "";
+            const isVideo = !!bannerVideo;
 
-            // 1. Upload Main Image
-            const mainImageUrl = await processAndUpload(mainImage, folderName);
-
-            // 2. Upload Gallery Images (Loop)
-            const galleryUrls = [];
-            for (let i = 0; i < galleryImages.length; i++) {
-                const url = await processAndUpload(galleryImages[i], folderName);
-                galleryUrls.push({ id: String(i + 1), image: url });
+            if (isVideo) {
+                mediaUrl = await uploadFile(bannerVideo, "videos");
+            } else {
+                mediaUrl = await uploadFile(bannerImage, "images");
             }
 
-            // 3. Insert into public.jewellary
             const { error: dbError } = await supabase
-                .from("jewellary")
+                .from("banners")
                 .insert([
                     {
-                        item_number: itemNumber,
-                        name: name,
-                        description: description,
-                        price: parseFloat(price),
-                        brand: brand,
-                        category: category,
-                        main_image: mainImageUrl,
-                        images: galleryUrls, // JSONB column
+                        festival_name: festivalName,
+                        discount_text: discountText,
+                        button_text: buttonText,
+                        banner_url: mediaUrl,
+                        is_video: isVideo,
+                        is_active: true,
+                        priority: 1
                     },
                 ]);
 
             if (dbError) throw dbError;
 
-            Alert.alert("Success", "Jewellary item uploaded!");
+            Alert.alert("Success", "Banner Offer Published!");
             resetForm();
         } catch (err) {
             Alert.alert("Upload Failed", err.message);
         } finally {
             setLoading(false);
+            setUploadProgress(0);
         }
     };
 
     const resetForm = () => {
-        setName(""); setDescription(""); setPrice("");
-        setBrand(""); setCategory(""); setItemNumber("");
-        setMainImage(null); setGalleryImages([]);
+        setFestivalName("");
+        setDiscountText("");
+        setButtonText("Shop Now");
+        setBannerImage(null);
+        setBannerVideo(null);
+        setUploadProgress(0);
     };
-
-    /* -------------------- UI -------------------- */
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-            <Loader visible={loading} />
+            <StatusBar barStyle="dark-content" />
+            <Loader visible={loading && uploadProgress === 0} />
 
-            {/* 1. ADD THIS MODAL BLOCK - It must be inside the return */}
-            <Modal
-                visible={categoryModalVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setCategoryModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select Category</Text>
-                        <FlatList
-                            data={categories}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={styles.modalItem}
-                                    onPress={() => {
-                                        setCategory(item.title);
-                                        setCategoryModalVisible(false);
-                                    }}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <Image source={item.image} style={{ width: 30, height: 30, borderRadius: 5, marginRight: 15 }} />
-                                        <Text style={[
-                                            styles.modalItemText,
-                                            category === item.title && { color: Colors.primary, fontWeight: 'bold' }
-                                        ]}>
-                                            {item.title}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        />
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setCategoryModalVisible(false)}
-                        >
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.title}>Upload Jewellary</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                <Text style={styles.title}>Admin: Add New Offer</Text>
 
                 <View style={styles.card}>
+                    <Text style={styles.label}>Festival / Occasion Name</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Product Name"
-                        placeholderTextColor={Colors.primary}
-                        value={name}
-                        onChangeText={setName}
+                        placeholder="e.g. Diwali Dhamaka"
+                        placeholderTextColor="#9CA3AF"
+                        value={festivalName}
+                        onChangeText={setFestivalName}
                     />
 
-                    <TextInput
-                        style={[styles.input, styles.textArea]}
-                        placeholder="Description"
-                        placeholderTextColor={Colors.primary}
-                        value={description}
-                        onChangeText={setDescription}
-                        multiline
-                    />
-
+                    <Text style={styles.label}>Offer Details</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Item Number (e.g. RNG-1001)"
-                        placeholderTextColor={Colors.primary}
-                        value={itemNumber}
-                        onChangeText={setItemNumber}
+                        placeholder="e.g. Flat 50% Off"
+                        placeholderTextColor="#9CA3AF"
+                        value={discountText}
+                        onChangeText={setDiscountText}
                     />
 
+                    <Text style={styles.label}>Button Text</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Price"
-                        placeholderTextColor={Colors.primary}
-                        value={price}
-                        keyboardType="numeric"
-                        onChangeText={setPrice}
+                        placeholder="Shop Now"
+                        placeholderTextColor="#9CA3AF"
+                        value={buttonText}
+                        onChangeText={setButtonText}
                     />
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Brand"
-                        value={brand}
-                        placeholderTextColor={Colors.primary}
-                        onChangeText={setBrand}
-                    />
-
-                    {/* Category Selector Trigger */}
-                    <TouchableOpacity
-                        style={styles.dropdownInput}
-                        onPress={() => setCategoryModalVisible(true)}
-                    >
-                        <Text style={{ color: category ? "#000" : Colors.primary }}>
-                            {category || "Select Category"}
-                        </Text>
-                        <Text style={{ color: Colors.primary }}>▼</Text>
-                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Images</Text>
-                    <TouchableOpacity style={styles.imageButton} onPress={pickMainImage}>
-                        <Text style={styles.imageButtonText}>Select Main Image</Text>
-                    </TouchableOpacity>
-                    {mainImage && (
-                        <Image source={{ uri: mainImage.uri }} style={styles.mainImage} resizeMode="cover" />
-                    )}
+                    <Text style={styles.sectionTitle}>Banner Media (Select One)</Text>
+                    
+                    <View style={styles.mediaRow}>
+                        <TouchableOpacity style={[styles.mediaButton, bannerImage && styles.activeMedia]} onPress={pickImage}>
+                            <Ionicons name="image-outline" size={24} color={bannerImage ? "#FFF" : "#374151"} />
+                            <Text style={[styles.mediaText, bannerImage && { color: '#FFF' }]}>Pick Image</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.imageButton} onPress={pickGalleryImages}>
-                        <Text style={styles.imageButtonText}>Select Gallery Images</Text>
-                    </TouchableOpacity>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {galleryImages.map((img, index) => (
-                            <Image key={index} source={{ uri: img.uri }} style={styles.galleryImage} />
-                        ))}
-                    </ScrollView>
+                        <TouchableOpacity style={[styles.mediaButton, bannerVideo && styles.activeMedia]} onPress={pickVideo}>
+                            <Ionicons name="videocam-outline" size={24} color={bannerVideo ? "#FFF" : "#374151"} />
+                            <Text style={[styles.mediaText, bannerVideo && { color: '#FFF' }]}>Pick Video</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {bannerImage && (
+                        <Image source={{ uri: bannerImage.uri }} style={styles.previewMedia} />
+                    )}
+                    
+                    {bannerVideo && (
+                        <View style={styles.videoPlaceholder}>
+                            <Ionicons name="play-circle" size={40} color="#1e3c72" />
+                            <Text style={{marginTop: 8, color: '#4B5563'}}>{bannerVideo.fileName || "Video Selected"}</Text>
+                        </View>
+                    )}
                 </View>
 
-                <TouchableOpacity style={styles.cartBar} onPress={handleSubmit}>
+                {/* Progress Bar UI */}
+                {loading && (
+                    <View style={styles.progressBox}>
+                        <View style={styles.progressLabelRow}>
+                            <Text style={styles.progressLabel}>Uploading to Storage...</Text>
+                            <Text style={styles.progressLabel}>{Math.round(uploadProgress)}%</Text>
+                        </View>
+                        <View style={styles.progressBarTrack}>
+                            <Animated.View 
+                                style={[
+                                    styles.progressBarFill, 
+                                    { width: progressAnim.interpolate({
+                                        inputRange: [0, 100],
+                                        outputRange: ['0%', '100%']
+                                    })} 
+                                ]} 
+                            />
+                        </View>
+                    </View>
+                )}
+
+                <TouchableOpacity 
+                    style={[styles.uploadBtnContainer, loading && { opacity: 0.7 }]} 
+                    onPress={handleUploadBanner}
+                    disabled={loading}
+                >
                     <LinearGradient
-                        colors={["#004e92", "#000428"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.cartButton}
+                        colors={["#1e3c72", "#2a5298"]}
+                        style={styles.uploadBtn}
                     >
-                        <Text style={styles.cartText}>
-                            Upload Jewellary
+                        <Text style={styles.uploadBtnText}>
+                            {loading ? "Processing..." : "Publish Offer Banner"}
                         </Text>
                     </LinearGradient>
                 </TouchableOpacity>
-
-                <View style={{ height: 120 }} />
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-/* -------------------- Styles -------------------- */
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    title: {
-        fontSize: 22,
-        fontWeight: "600",
-        color: Colors.primary,
-        marginHorizontal: Spacing.lg,
-        marginTop: Spacing.md,
-    },
-    card: {
-        backgroundColor: "#fff",
-        marginHorizontal: Spacing.lg,
-        marginTop: Spacing.md,
-        padding: Spacing.lg,
-        borderRadius: 18,
-    },
-    input: {
+    container: { flex: 1, backgroundColor: "#F9FAFB" },
+    title: { fontSize: 24, fontWeight: "bold", margin: 20, color: "#111827" },
+    card: { backgroundColor: "#FFF", marginHorizontal: 20, padding: 20, borderRadius: 15, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
+    label: { fontSize: 13, fontWeight: "700", color: "#374151", marginBottom: 6, textTransform: 'uppercase' },
+    input: { borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 12, marginBottom: 15, color: "#000", backgroundColor: '#FBFBFB' },
+    section: { marginTop: 25, paddingHorizontal: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: "700", marginBottom: 15, color: '#111827' },
+    mediaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+    mediaButton: { 
+        flex: 0.48, 
+        backgroundColor: "#F3F4F6", 
+        padding: 15, 
+        borderRadius: 12, 
+        alignItems: 'center', 
+        flexDirection: 'row', 
+        justifyContent: 'center',
         borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 12,
-        fontSize: 14,
+        borderColor: '#E5E7EB'
     },
-    textArea: {
-        height: 100,
-        textAlignVertical: "top",
-    },
-    section: {
-        marginTop: Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: Colors.primary,
-        marginBottom: 14,
-    },
-    imageButton: {
-        backgroundColor: "#F3F4F6",
-        padding: 14,
-        borderRadius: 14,
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    imageButtonText: {
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    mainImage: {
-        width: "100%",
-        height: 220,
-        borderRadius: 18,
-        marginBottom: 14,
-    },
-    galleryImage: {
-        width: 90,
-        height: 90,
-        borderRadius: 14,
-        marginRight: 10,
-    },
-    cartBar: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 20,
-    },
-
-    cartButton: {
-        borderRadius: 10,
-        paddingVertical: 16,
-        alignItems: "center",
-    },
-
-    cartText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-    },
-    dropdownInput: {
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    activeMedia: { backgroundColor: "#1e3c72", borderColor: '#1e3c72' },
+    mediaText: { marginLeft: 10, fontWeight: '700', color: '#374151' },
+    previewMedia: { width: '100%', height: 200, borderRadius: 15 },
+    videoPlaceholder: { 
+        width: '100%', 
+        height: 120, 
+        backgroundColor: '#F3F4F6', 
+        borderRadius: 15, 
+        justifyContent: 'center', 
         alignItems: 'center',
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        borderColor: '#D1D5DB'
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 20,
-        maxHeight: '50%',
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-        textAlign: 'center',
-    },
-    modalItem: {
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-    },
-    modalItemText: {
-        fontSize: 16,
-        textAlign: 'center',
-    },
-    closeButton: {
-        marginTop: 10,
+    progressBox: {
+        marginHorizontal: 20,
+        marginTop: 25,
         padding: 15,
-        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
     },
-    closeButtonText: {
-        color: 'red',
-        fontWeight: '600',
-    }
-});
+    progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    progressLabel: { fontSize: 12, fontWeight: '700', color: '#1e3c72' },
+    progressBarTrack: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
+    progressBarFill: { height: '100%', backgroundColor: '#1e3c72' },
+    uploadBtnContainer: { marginTop: 30, paddingHorizontal: 20 },
+    uploadBtn: { paddingVertical: 18, borderRadius: 12, alignItems: 'center' },
+    uploadBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 }
+})

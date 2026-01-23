@@ -5,7 +5,6 @@ import Spacing from "../theme/Spacing";
 import AppImage from "./AppImage";
 
 export default function ProfileHeader({ user }) {
-  console.log(user?.providerData?.[0]?.photoURL);
   
   return (
     <View style={styles.container}>
@@ -43,7 +42,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.primary,
+    color: Colors.text,
   },
   email: {
     fontSize: 14,

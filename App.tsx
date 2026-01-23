@@ -6,8 +6,6 @@ import AppNavigator from "./App/navigation/AppNavigator"
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AuthProvider, { AuthContext } from './App/context/AuthContext';
 import notifee from "@notifee/react-native";
-import { CartProvider } from './App/context/CartContext'
-import { FavoritesProvider } from './App/context/FavouritesContext'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { parseDeepLink } from './App/utils/deepLinkGenerator'
 import { products } from './App/data/homeData';
@@ -33,22 +31,16 @@ export default function App() {
     }
     setup();
     const handleDeepLink = (url) => {
-      console.log('🔗 Deep link received:', url);
 
       try {
         const parsed = parseDeepLink(url);
-        console.log('📦 Parsed:', parsed);
 
         if (parsed && parsed.screen === 'product') {
           const fullProduct = products.find(p => p.id === parsed.productId);
 
-          console.log('🔍 Looking for product ID:', parsed.productId);
-          console.log('✅ Product found:', fullProduct?.name);
-
           if (fullProduct) {
             // ✅ CRITICAL: setTimeout ensures navigation is ready
             setTimeout(() => {
-              console.log('🚀 Navigating to ProductDetail...');
 
               navigationRef.current?.navigate('ProductDetail', {
                 product: fullProduct,
@@ -56,8 +48,6 @@ export default function App() {
                 selectedColor: parsed.color || 'Gold',     // ✅ Fallback
                 selectedWidth: parsed.width || '2.5',      // ✅ Fallback
               });
-
-              console.log('✅ Navigation called');
             }, 500);  // ✅ 500ms delay is important!
           } else {
             console.warn('⚠️ Product not found with ID:', parsed.productId);
@@ -89,7 +79,6 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-          <CartProvider>
             <AuthProvider>
               <AuthContext.Consumer>
                 {({ user }) => (
@@ -100,7 +89,6 @@ export default function App() {
                 )}
               </AuthContext.Consumer>
             </AuthProvider>
-          </CartProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

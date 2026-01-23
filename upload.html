@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Upload Jewellery</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Supabase JS v2 -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f4f6f8;
+            padding: 16px;
+        }
+
+        .card {
+            max-width: 520px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        input,
+        textarea,
+        select,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: linear-gradient(90deg, #004e92, #000428);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .log {
+            margin-top: 10px;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h2>Upload Jewellery (Web)</h2>
+
+        <input id="name" placeholder="Product Name" />
+        <textarea id="description" placeholder="Description"></textarea>
+        <input id="itemNumber" placeholder="Item Number" />
+        <input id="price" type="number" placeholder="Price" />
+        <input id="brand" placeholder="Brand" />
+
+        <select id="category">
+            <option value="">Select Category</option>
+            <option>Rings</option>
+            <option>Necklaces</option>
+            <option>Earrings</option>
+            <option>Bracelets</option>
+        </select>
+
+        <label>Main Image</label>
+        <input id="mainImage" type="file" accept="image/*" />
+
+        <label>Gallery Images</label>
+        <input id="galleryImages" type="file" accept="image/*" multiple />
+
+        <button id="uploadBtn">Upload Jewellery</button>
+
+        <div id="status"></div>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        /* ================= SUPABASE ================= */
+
+        const SUPABASE_URL = "https://xlcshdtizkqibimmnnnl.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_AvGxLEIA0VG9o4SAbdkGTw_rkN3K88Z";
+
+        // Create Supabase client once
+        const mySupabase = window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY
+        );
+
+        /* ================= HELPERS ================= */
+
+        const statusBox = document.getElementById("status");
+        const logBox = document.getElementById("log");
+
+        function setStatus(msg, type = "") {
+            statusBox.textContent = msg;
+            statusBox.className = type;
+        }
+
+        function log(msg) {
+            logBox.textContent += msg + "\n";
+        }
+
+        /* ================= IMAGE UPLOAD ================= */
+
+        async function uploadImageFile(file, folder) {
+            // Ensure only images (extra safety)
+            if (!file.type.startsWith("image/")) {
+                throw new Error("Selected file is not an image");
+            }
+
+            const ext = file.name.split(".").pop() || "jpg";
+            const fileName = `${Date.now()}-${Math.random()
+                .toString(36)
+                .substring(7)}.${ext}`;
+            const filePath = `${folder}/${fileName}`;
+
+            log("Uploading: " + filePath);
+
+            // In browser, pass File directly (no base64 needed)
+            const { data, error: uploadError } = await mySupabase.storage
+                .from("jewellary-images")
+                .upload(filePath, file, {
+                    contentType: file.type || "image/jpeg"
+                });
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data: urlData } = mySupabase.storage
+                .from("jewellary-images")
+                .getPublicUrl(filePath);
+
+            if (!urlData || !urlData.publicUrl) {
+                throw new Error("Failed to get public URL for uploaded image");
+            }
+
+            return urlData.publicUrl;
+        }
+
+        /* ================= SUBMIT ================= */
+
+        async function handleSubmit() {
+            logBox.textContent = "";
+            setStatus("Uploading...");
+
+            try {
+                const name = document.getElementById("name").value.trim();
+                const description = document.getElementById("description").value.trim();
+                const itemNumber = document.getElementById("itemNumber").value.trim();
+                const price = document.getElementById("price").value;
+                const brand = document.getElementById("brand").value.trim();
+                const category = document.getElementById("category").value;
+                const mainImageInput = document.getElementById("mainImage");
+                const galleryInput = document.getElementById("galleryImages");
+
+                const mainImage = mainImageInput.files[0] || null;
+                const galleryImages = galleryInput.files
+                    ? Array.prototype.slice.call(galleryInput.files)
+                    : [];
+
+                if (!name || !price || !category || !mainImage) {
+                    setStatus("Missing required fields", "error");
+                    return;
+                }
+
+                const folderName = category.toLowerCase().trim();
+
+                // 1. MAIN IMAGE
+                const mainImageUrl = await uploadImageFile(mainImage, folderName);
+                log("Main image uploaded");
+
+                // 2. GALLERY
+                const galleryUrls = [];
+                for (let i = 0; i < galleryImages.length; i++) {
+                    const url = await uploadImageFile(galleryImages[i], folderName);
+                    galleryUrls.push({ id: String(i + 1), image: url });
+                }
+                log("Gallery uploaded");
+
+                // 3. DB INSERT
+                const { error } = await mySupabase
+                    .from("jewellary")
+                    .insert([
+                        {
+                            item_number: itemNumber,
+                            name: name,
+                            description: description,
+                            price: parseFloat(price),
+                            brand: brand,
+                            category: category,
+                            main_image: mainImageUrl,
+                            images: galleryUrls
+                        }
+                    ]);
+
+                if (error) {
+                    throw error;
+                }
+
+                setStatus("✅ Jewellery uploaded successfully", "success");
+            } catch (err) {
+                console.error(err);
+                setStatus(
+                    "❌ " + (err && err.message ? err.message : "Unknown error"),
+                    "error"
+                );
+            }
+        }
+
+        // Attach the handler in JS (no inline onclick)
+        document
+            .getElementById("uploadBtn")
+            .addEventListener("click", handleSubmit);
+    </script>
+
+</body>
+
+</html>

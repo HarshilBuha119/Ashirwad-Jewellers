@@ -3,15 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
-import { useCart } from "../context/CartContext";
-import Colors from "../theme/Colors"; // Make sure to import your Colors
+import { useQuery } from "@tanstack/react-query";
+import { fetchCart } from "../services/api";
+import Colors from "../theme/Colors";
 
 export default function HomeHeader() {
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
-  const { cartItems } = useCart();
+  const { data: cartItems = [] } = useQuery({
+    queryKey: ['cart'],
+    queryFn: fetchCart,
+  });
 
+  // 2. Calculate the total quantity of items in the cart
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <View style={styles.container}>
@@ -21,17 +27,17 @@ export default function HomeHeader() {
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={()=>navigation.navigate("Products")}>
           <Ionicons name="search-outline" size={22} />
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={{ marginLeft: 14 }}>
           <Ionicons name="notifications-outline" size={22} />
         </TouchableOpacity>
 
         {/* CART BUTTON WITH BADGE */}
-        <TouchableOpacity 
-          style={{ marginLeft: 14 }} 
+        <TouchableOpacity
+          style={{ marginLeft: 14 }}
           onPress={() => navigation.navigate("Cart")}
         >
           <View>
@@ -74,7 +80,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -6,
     top: -4,
-    backgroundColor: "#F97316", // Your orange/primary color
+    backgroundColor: Colors.text, // Your orange/primary color
     borderRadius: 10,
     minWidth: 16,
     height: 16,

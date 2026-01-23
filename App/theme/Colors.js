@@ -5,7 +5,7 @@ export const Colors = {
   secondary: "#C9A24D",     // Gold accent
   muted: "#94A3B8",         // Sub text
   border: "#E5E7EB",
-
+  text: "#742802",
   white: "#FFFFFF",
   black: "#000000",
 

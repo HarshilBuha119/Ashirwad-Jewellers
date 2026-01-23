@@ -5,107 +5,148 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    Image,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AppImage from "../components/AppImage";
 import Colors from "../theme/Colors";
-import { useCart } from "../context/CartContext";
 import LinearGradient from "react-native-linear-gradient";
 import FastImage from "@d11/react-native-fast-image";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchCart, removeCartItem, updateCartQuantity } from "../services/api";
+import Loader from "../components/Loader";
 
 export default function CartScreen({ navigation }) {
-    const {
-        cartItems,
-        updateQuantity,
-        removeItem,
-        subtotal,
-        shipping,
-        total,
-    } = useCart();
-    console.log(cartItems);
+    const queryClient = useQueryClient();
 
+    // 1. Fetching Data
+    const { data: cartItems = [], isLoading } = useQuery({
+        queryKey: ['cart'],
+        queryFn: fetchCart
+    });
+
+    // 2. Mutations
+    const updateMutation = useMutation({
+        mutationFn: ({ id, qty }) => updateCartQuantity(id, qty),
+        onSuccess: () => queryClient.invalidateQueries(['cart'])
+    });
+
+    const removeMutation = useMutation({
+        mutationFn: (id) => removeCartItem(id),
+        onSuccess: () => queryClient.invalidateQueries(['cart'])
+    });
+
+    // 3. Helper Handlers
+    const handleUpdateQty = (id, currentQty, change) => {
+        const newQty = currentQty + change;
+        updateMutation.mutate({ id, qty: newQty });
+    };
+
+    const handleRemove = (id) => {
+        removeMutation.mutate(id);
+    };
+
+    const loading = isLoading || updateMutation.isPending || removeMutation.isPending;
+    // 4. Calculations
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const shipping = cartItems.length > 0 ? 15 : 0;
+    const total = subtotal + shipping;
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerCircle}>
                     <View style={{ paddingRight: 10 }}>
-                        <Ionicons name="chevron-back" size={22} />
+                        <Ionicons name="chevron-back" size={22} color={Colors.text} />
                     </View>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Cart</Text>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-                {cartItems.map((item, index) => (
-                    <View key={index} style={styles.card}>
-                        <View style={styles.imageCard}>
-                            <FastImage source={{ uri: item.main_image }} style={styles.image} resizeMode="cover" />
-                        </View>
+            {/* 1. Show Loader */}
+            <Loader visible={loading} />
 
-                        <View style={styles.info}>
-                            <Text style={styles.name}>{item.name}</Text>
-                            <Text style={styles.meta}>Caret: {item.carat}</Text>
-                            <Text style={styles.meta}>Size: {item.width}MM</Text>
-                            <Text style={styles.meta}>Color: {item.color}</Text>
-                            <Text style={styles.price}>${item.price}</Text>
-
-                            <View style={styles.qtyRow}>
-                                <TouchableOpacity
-                                    onPress={() => updateQuantity(index, -1)}
-                                    style={styles.qtyBtn}
-                                >
-                                    <Ionicons name="remove" size={16} color={Colors.primary} />
-                                </TouchableOpacity>
-
-                                <Text style={styles.qty}>{item.quantity}</Text>
-
-                                <TouchableOpacity
-                                    onPress={() => updateQuantity(index, 1)}
-                                    style={styles.qtyBtn}
-                                >
-                                    <Ionicons name="add" size={16} />
-                                </TouchableOpacity>
+            {/* 2. Conditional Logic: If items exist, show ScrollView. Else, show centered empty state */}
+            {cartItems.length > 0 ? (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    {cartItems.map((item) => (
+                        <View key={item.cartItemId} style={styles.card}>
+                            <View style={styles.imageCard}>
+                                <FastImage source={{ uri: item.main_image }} style={styles.image} resizeMode="cover" />
                             </View>
+
+                            <View style={styles.info}>
+                                <Text style={styles.name}>{item.name}</Text>
+                                <Text style={styles.meta}>Caret: {item.carat}</Text>
+                                <Text style={styles.meta}>Size: {item.width}MM</Text>
+                                <Text style={styles.meta}>Color: {item.color}</Text>
+                                <Text style={styles.price}>₹{item.price}</Text>
+
+                                <View style={styles.qtyRow}>
+                                    <TouchableOpacity
+                                        onPress={() => handleUpdateQty(item.cartItemId, item.quantity, -1)}
+                                        disabled={updateMutation.isPending}
+                                        style={styles.qtyBtn}
+                                    >
+                                        <Ionicons name="remove" size={16} color={Colors.primary} />
+                                    </TouchableOpacity>
+
+                                    <Text style={styles.qty}>{item.quantity}</Text>
+
+                                    <TouchableOpacity
+                                        onPress={() => handleUpdateQty(item.cartItemId, item.quantity, 1)}
+                                        disabled={updateMutation.isPending}
+                                        style={styles.qtyBtn}
+                                    >
+                                        <Ionicons name="add" size={16} color={Colors.text} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={() => handleRemove(item.cartItemId)}
+                                disabled={removeMutation.isPending}
+                                style={styles.delete}
+                            >
+                                <Ionicons name="trash-outline" size={20} color="#6B7280" />
+                            </TouchableOpacity>
                         </View>
+                    ))}
 
-                        <TouchableOpacity
-                            onPress={() => removeItem(index)}
-                            style={styles.delete}
-                        >
-                            <Ionicons name="trash-outline" size={20} color="#6B7280" />
-                        </TouchableOpacity>
-                    </View>
-                ))}
-
-                {cartItems.length > 0 ? (
                     <View style={styles.summary}>
-                        <Row label="Sub Total" value={`$${subtotal}`} />
-                        <Row label="Shipping" value={`$${shipping}`} />
-                        <Row label="Total" value={`$${total}`} bold />
+                        <Row label="Sub Total" value={`₹${subtotal}`} />
+                        <Row label="Shipping" value={`₹${shipping}`} />
+                        <Row label="Total" value={`₹${total}`} bold />
                     </View>
-                ) :
-                    <View style={styles.summary}>
-                        <Text style={{ textAlign: "center", fontSize: 25, alignItems: "center", justifyContent: "center" }}>No item to show</Text>
-                    </View>}
 
-                <View style={{ height: 120 }} />
-            </ScrollView>
-
-            {/* CHECKOUT */}
-            <View style={styles.checkoutBar}>
-                <TouchableOpacity onPress={() => navigation.navigate("Payment")}>
-                    <LinearGradient
-                        colors={["#004e92", "#000428"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.checkoutBtn}
+                    {/* Spacer for the absolute checkout bar */}
+                    <View style={{ height: 120 }} />
+                </ScrollView>
+            ) : (
+                /* 3. CENTERED EMPTY STATE */
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="cart-outline" size={80} color={Colors.text} />
+                    <Text style={styles.emptyText}>No items to show</Text>
+                    <TouchableOpacity
+                        style={styles.shopBtn}
+                        onPress={() => navigation.navigate("Tabs")}
                     >
-                        <Text style={styles.checkoutText}>CHECKOUT</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
+                        <Text style={styles.shopBtnText}>Start Shopping</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+            {/* CHECKOUT */}
+            {cartItems.length > 0 && (
+                <View style={styles.checkoutBar}>
+                    <TouchableOpacity onPress={() => navigation.navigate("Payment")}>
+                        <LinearGradient
+                            colors={["#4A2F24", "#4A2F24"]}
+                            start={{ x: 0.7, y: 0 }}
+                            style={styles.checkoutBtn}
+                        >
+                            <Text style={styles.checkoutText}>CHECKOUT</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -133,6 +174,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "600",
         marginLeft: 12,
+        color: Colors.text
     },
 
     card: {
@@ -163,6 +205,7 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 14,
         fontWeight: "600",
+        color: Colors.text,
     },
     meta: {
         fontSize: 12,
@@ -202,7 +245,12 @@ const styles = StyleSheet.create({
         padding: 20,
         flex: 1
     },
-
+    empty: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: Colors.text
+    },
     row: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -217,6 +265,31 @@ const styles = StyleSheet.create({
         fontWeight: "700",
     },
 
+    emptyContainer: {
+        flex: 1,                    // Takes up all available space
+        justifyContent: "center",   // Vertical center
+        alignItems: "center",       // Horizontal center
+        paddingBottom: 100,         // Offsets slightly so it's not hidden by checkout bar
+    },
+    emptyText: {
+        fontSize: 20,
+        fontWeight: "500",
+        color: "#9CA3AF",
+        marginTop: 16,
+    },
+    shopBtn: {
+        marginTop: 20,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 25,
+        backgroundColor: Colors.text,
+    },
+    shopBtnText: {
+        color: Colors.white,
+        fontWeight: "600",
+    },
+
+    // Ensure the checkout bar only shows if there are items
     checkoutBar: {
         position: "absolute",
         bottom: 0,
@@ -224,6 +297,8 @@ const styles = StyleSheet.create({
         right: 0,
         padding: 20,
         backgroundColor: Colors.background,
+        // Hide bar if cart is empty to keep screen clean
+        display: 'flex',
     },
 
     checkoutBtn: {

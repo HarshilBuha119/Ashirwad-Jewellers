@@ -19,10 +19,10 @@ export default function ProfileOption({ item, onPress }) {
       onPress={onPress}
     >
       <View style={styles.left}>
-        {item.icon === "upload" ? <AntDesign name="upload" color="#000" size={24} /> : <Ionicons
+        {item.icon === "upload" ? <AntDesign name="upload" color={Colors.text} size={24} /> : <Ionicons
           name={item.icon}
           size={22}
-          color={Colors.primary}
+          color={Colors.text}
         />}
 
         <Text style={styles.title}>{item.title}</Text>
@@ -31,7 +31,7 @@ export default function ProfileOption({ item, onPress }) {
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={Colors.muted}
+        color={Colors.text}
       />
     </TouchableOpacity>
   );
@@ -62,6 +62,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     marginLeft: Spacing.md,
-    color: Colors.primary,
+    color: Colors.text,
   },
 });
