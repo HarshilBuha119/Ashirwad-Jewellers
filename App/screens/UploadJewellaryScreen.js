@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { launchImageLibrary } from "react-native-image-picker";
-import Colors from "../theme/Colors";
 import Loader from "../components/Loader";
 import { supabase } from "../lib/supabase";
 import { decode } from 'base64-arraybuffer';

@@ -1,10 +1,12 @@
-import React from "react";
+import React, { memo } from "react";
 import { Text, StyleSheet, TouchableOpacity, View } from "react-native";
 import AppImage from "./AppImage";
 import FastImage from "@d11/react-native-fast-image";
 import Colors from "../theme/Colors";
+import Spacing from "../theme/Spacing";
 
-export default function CategoryItem({ item, isSelected, onPress }) {
+// We wrap the component in memo() right at the definition
+const CategoryItem = memo(({ item, isSelected, onPress }) => {
   return (
     <TouchableOpacity 
       style={styles.container} 
@@ -29,35 +31,38 @@ export default function CategoryItem({ item, isSelected, onPress }) {
       </Text>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
   },
   imageWrapper: {
-    padding: 3, // Space for the border
-    borderRadius: 120,
+    padding: 3, 
+    borderRadius: 100, 
     borderWidth: 2,
-    borderColor: "transparent", // Default invisible border
-    marginBottom: 6,
+    borderColor: "transparent", 
+    marginBottom: Spacing.xs,
   },
   imageWrapperSelected: {
-    borderColor: Colors.text, // Gold border when selected
+    borderColor: Colors.text, 
   },
   image: {
     width: 65,
     height: 65,
-    borderRadius: 120,
+    borderRadius: 100,
+    backgroundColor: Colors.border, 
   },
   text: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
+    color: Colors.muted, 
   },
   textSelected: {
     color: Colors.text,
     fontWeight: "800",
   },
 });
+
+export default CategoryItem;

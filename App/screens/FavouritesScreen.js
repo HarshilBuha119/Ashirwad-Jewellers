@@ -8,46 +8,64 @@ import {
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUserFavorites } from '../hooks/useStore';
-import Colors from "../theme/Colors";
+
+// ONLY using the hooks from the code you provided
+import { useFavorites, useMetalRates } from "../api/orderApi"; // Adjust path if needed
+import { calculateProductPrice } from "../utils/priceCalculator";
+
+// Components
 import ProductCard from "../components/ProductCard";
 import Loader from "../components/Loader";
 
-export default function FavoritesScreen({ navigation }) {
-  const { data: favorites, isLoading, error } = useUserFavorites();
+// Theme
+import Colors from "../theme/Colors";
+import Spacing from "../theme/Spacing";
 
-  if (isLoading) return <Loader visible={true} />;
+export default function FavoritesScreen({ navigation }) {
+  // 1. Fetch Favorites & Rates directly from your provided hooks
+  const { data: favorites = [], isLoading: favLoading } = useFavorites();
+  const { data: metalRates = [], isLoading: ratesLoading } = useMetalRates();
+
+  // 2. Enrich the favorites with live prices
+  const enrichedFavorites = favorites.map(item => ({
+    ...item,
+    calculatedPrice: calculateProductPrice(item, metalRates)
+  }));
+
+  if (favLoading || ratesLoading) return <Loader visible={true} />;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ===== HEADER ===== */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#000" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Favorites</Text>
-
-        {/* spacer to balance header */}
-        <View style={{ width: 24 }} />
+        <View style={styles.placeholder} />
       </View>
 
-      {/* ===== CONTENT ===== */}
-      {!favorites.length ? (
+      {/* CONTENT */}
+      {enrichedFavorites.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="heart-outline" size={48} color="#9CA3AF" />
+          <Ionicons name="heart-outline" size={60} color={Colors.muted} />
           <Text style={styles.emptyText}>No favorites yet</Text>
         </View>
       ) : (
         <FlatList
-          data={favorites}
+          data={enrichedFavorites}
           keyExtractor={(item) => item.id.toString()}
-          numColumns={2}                         // ✅ 2 per row
+          numColumns={2}
           showsVerticalScrollIndicator={false}
-          columnWrapperStyle={styles.row}        // ✅ spacing between columns
-          contentContainerStyle={styles.list}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <ProductCard item={item} grid={true} isFav={true}/>
+            <ProductCard 
+              item={item} 
+              grid={true} 
+              isFav={true} 
+              displayPrice={item.calculatedPrice} 
+            />
           )}
         />
       )}
@@ -55,49 +73,20 @@ export default function FavoritesScreen({ navigation }) {
   );
 }
 
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    padding:20
-  },
-
-  /* ===== HEADER ===== */
+  container: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.background,
-    marginBottom:30
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-
-  /* ===== EMPTY STATE ===== */
-  empty: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  emptyText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
-  },
-
-  /* ===== LIST ===== */
-  list: {
-    paddingBottom: 24,
-  },
-
-  row: {
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
+  backBtn: { padding: Spacing.xs },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: Colors.text },
+  placeholder: { width: 24 },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 100 },
+  emptyText: { marginTop: Spacing.md, fontSize: 16, color: Colors.muted },
+  listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl },
+  columnWrapper: { justifyContent: "space-between", marginBottom: Spacing.md },
 });

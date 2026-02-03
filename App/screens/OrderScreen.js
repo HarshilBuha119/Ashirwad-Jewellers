@@ -15,6 +15,8 @@ import Loader from "../components/Loader";
 
 export default function OrdersScreen({ navigation }) {
   const { data: orders, isLoading, refetch } = useUserOrders();
+  console.log(orders);
+  
   if (isLoading) return <Loader visible={true} />;
   if (!orders.length) {
     return (
@@ -65,7 +67,7 @@ export default function OrdersScreen({ navigation }) {
                     <Text style={styles.name}>{it.name}</Text>
                     <Text style={styles.meta}>Qty: {it.quantity}</Text>
                   </View>
-                  <Text style={styles.itemTotal}>₹{(it.price * it.quantity).toFixed(2)}</Text>
+                  <Text style={styles.itemTotal}>₹{(it.final_price * it.quantity).toFixed(2)}</Text>
                 </View>
               )}
               showsVerticalScrollIndicator={false}

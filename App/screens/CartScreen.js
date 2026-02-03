@@ -47,9 +47,15 @@ export default function CartScreen({ navigation }) {
 
     const loading = isLoading || updateMutation.isPending || removeMutation.isPending;
     // 4. Calculations
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // Use Number() to ensure "922" becomes 922
+    const subtotal = cartItems.reduce((sum, item) => {
+        const price = Number(item.final_price) || 0;
+        return sum + (price * item.quantity);
+    }, 0);
     const shipping = cartItems.length > 0 ? 15 : 0;
     const total = subtotal + shipping;
+    console.log(subtotal, "subtotal", total, "total");
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -78,7 +84,7 @@ export default function CartScreen({ navigation }) {
                                 <Text style={styles.meta}>Caret: {item.carat}</Text>
                                 <Text style={styles.meta}>Size: {item.width}MM</Text>
                                 <Text style={styles.meta}>Color: {item.color}</Text>
-                                <Text style={styles.price}>₹{item.price}</Text>
+                                <Text style={styles.price}>₹{item.final_price}</Text>
 
                                 <View style={styles.qtyRow}>
                                     <TouchableOpacity

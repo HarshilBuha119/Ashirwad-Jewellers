@@ -1,183 +1,193 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, FlatList, StatusBar, RefreshControl, ImageBackground } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { 
+  View, Text, StyleSheet, ScrollView, 
+  FlatList, StatusBar, RefreshControl 
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+
+// Centralized Hooks
+import { useJewellary, useMetalRates, useFavorites } from "../api/storeApi";
+
+// Components & Utils
 import HomeHeader from "../components/HomeHeader";
 import PromoBanner from "../components/PromoBanner";
 import CategoryItem from "../components/CategoryItem";
 import ProductCard from "../components/ProductCard";
 import Poster from "../components/Poster";
+import Loader from "../components/Loader";
+import { calculateProductPrice } from "../utils/priceCalculator";
+
+// Theme & Data
 import { categories } from "../data/homeData";
 import Colors from "../theme/Colors";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import { fetchJewellary } from "../services/jewellaryService";
-import Loader from "../components/Loader";
-import { useUserFavorites } from "../hooks/useStore";
-import { Images } from "../../assets/images";
+import Spacing from "../theme/Spacing";
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const [products, setProducts] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  // NEW: State for filtering
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const { data: favorites = [] } = useUserFavorites();
+  // 1. Data Fetching via React Query (Managed Cache)
+  const { data: products = [], isLoading: pLoading, refetch: refetchProducts } = useJewellary();
+  const { data: metalRates = [], isLoading: rLoading } = useMetalRates();
+  const { data: favorites = [] } = useFavorites();
 
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchJewellary();
-      setProducts(data);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 2. Logic Optimization: useMemo prevents recalculation on every re-render
+  const enrichedAndFilteredProducts = useMemo(() => {
+    if (!products.length) return [];
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+    const withPrices = products.map(item => ({
+      ...item,
+      calculatedPrice: calculateProductPrice(item, metalRates)
+    }));
 
-  // NEW: Filter logic
-  // This recalculates whenever products OR selectedCategory changes
-  const filteredProducts = useMemo(() => {
-    if (selectedCategory === "All") return products;
+    if (selectedCategory === "All") return withPrices;
+    
+    const lowerCategory = selectedCategory.toLowerCase();
+    return withPrices.filter((p) => p.category?.toLowerCase() === lowerCategory);
+  }, [products, metalRates, selectedCategory]);
 
-    return products.filter((p) =>
-      p.category?.toLowerCase() === selectedCategory.toLowerCase()
-    );
-  }, [products, selectedCategory]);
+  // 3. Memoized Handlers to prevent unnecessary child re-renders
+  const onRefresh = useCallback(() => {
+    refetchProducts();
+  }, [refetchProducts]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadProducts();
-    setRefreshing(false);
-  }, []);
+  const handleResetCategory = useCallback(() => setSelectedCategory("All"), []);
 
   const renderProduct = useCallback(({ item }) => (
     <ProductCard
       item={item}
+      displayPrice={item.calculatedPrice} 
       isFav={favorites.some(f => f.id === item.id || f.product_id === item.id)}
     />
   ), [favorites]);
 
+  const isAppLoading = pLoading || rLoading;
+
   return (
     <SafeAreaView style={styles.container}>
-
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <HomeHeader />
-      <Loader visible={loading} />
+      <Loader visible={isAppLoading} />
+      
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl 
+            refreshing={false} 
+            onRefresh={onRefresh} 
+            tintColor={Colors.primary} 
+          />
+        }
       >
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
         <PromoBanner />
-        <Poster
-          title="20% OFF ALL GOLD"
-          subtitle="Limited Time Offer"
-          image={Images.OfferPoster} // Ensure this image exists in your assets
-          onBtnPress={() => console.log("Offer Claimed")}
-        />
+        <Poster />
+
         {/* Category Section */}
         <View style={styles.section}>
           <View style={styles.row}>
             <Text style={styles.sectionTitle}>Category</Text>
             {selectedCategory !== "All" && (
-              <Text style={styles.seeAll} onPress={() => setSelectedCategory("All")}>Reset</Text>
+              <Text style={styles.resetText} onPress={handleResetCategory}>Reset</Text>
             )}
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={{ paddingHorizontal: 10 }}
-            overScrollMode="never"
+            contentContainerStyle={styles.categoryListContent}
           >
             {categories.map((item) => (
-              <View key={item.id} style={{ marginRight: 0 }}>
-                <CategoryItem
-                  item={item}
-                  isSelected={selectedCategory === item.title}
-                  onPress={() => setSelectedCategory(item.title)}
-                />
-              </View>
+              <CategoryItem
+                key={item.id}
+                item={item}
+                isSelected={selectedCategory === item.title}
+                onPress={() => setSelectedCategory(item.title)}
+              />
             ))}
           </ScrollView>
         </View>
 
-        {/* Filtered Results Section */}
+        {/* Product Results */}
         <View style={styles.section}>
           <View style={styles.row}>
             <Text style={styles.sectionTitle}>
               {selectedCategory === "All" ? "New Arrival" : `${selectedCategory} Collection`}
             </Text>
-            <Text onPress={() => navigation.navigate("Products")} style={styles.seeAll}>
+            <Text onPress={() => navigation.navigate("Products")} style={styles.seeAllText}>
               See All
             </Text>
           </View>
+          
           <FlatList
             horizontal
-            data={filteredProducts} // Use the filtered list here
+            data={enrichedAndFilteredProducts.slice(0,5)}
             renderItem={renderProduct}
             keyExtractor={(item) => item.id.toString()}
             showsHorizontalScrollIndicator={false}
-            overScrollMode="never"
-            bounces={false}                // Prevents the extra "stretchy" space
-            alwaysBounceHorizontal={false} // Ensures no bounce even if content is small
-            decelerationRate="fast"        // Makes the list stop moving quicker
-            keyboardShouldPersistTaps="always"
-            ListHeaderComponent={<View style={{ width: 20 }} />}
-            // Add ListEmptyComponent to show a message if no items match
+            contentContainerStyle={styles.productListContent}
+            removeClippedSubviews={true} 
+            initialNumToRender={6}
+            maxToRenderPerBatch={10}
+            windowSize={5}
             ListEmptyComponent={() => (
-              <Text style={{ marginLeft: 20, color: '#999' }}>No items found in this category.</Text>
+              <Text style={styles.emptyText}>No items found in this category.</Text>
             )}
           />
         </View>
 
-        <View style={{ height: 120 }} />
+        <View style={styles.footerSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
-  container: {
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.background 
+  },
+  scrollView: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
-  bgImage: {
-    height: "100%",
-    width: "100%",
-    justifyContent: 'center',
+  section: { 
+    marginTop: Spacing.lg 
+  },
+  row: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
     alignItems: 'center',
+    marginBottom: Spacing.md, 
+    paddingHorizontal: Spacing.lg 
   },
-  glassCard: {
-    width: '100%',
-    height: "100%",
-    borderRadius: 20,
-    overflow: 'hidden', // Required for BlurView to respect border radius
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)', // This creates the "edge" of the glass
+  sectionTitle: { 
+    fontSize: 18, 
+    fontWeight: "600", 
+    color: Colors.text 
   },
-  section: {
-    marginTop: 24,
+  resetText: { 
+    fontSize: 13, 
+    color: Colors.text, 
+    fontWeight: "500" 
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 14,
-    paddingHorizontal: 20
+  seeAllText: { 
+    fontSize: 13, 
+    color: Colors.text, 
+    fontWeight: "500" 
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.text,
+  categoryListContent: { 
+    paddingHorizontal: Spacing.sm 
   },
-  seeAll: {
-    fontSize: 13,
-    color: Colors.text,
-    fontWeight: "500",
+  productListContent: { 
+    paddingLeft: Spacing.lg 
   },
+  emptyText: { 
+    color: Colors.muted, 
+    marginTop: Spacing.sm,
+    marginLeft: Spacing.lg,
+    fontSize: 14,
+  },
+  footerSpacing: { 
+    height: 120
+  }
 });

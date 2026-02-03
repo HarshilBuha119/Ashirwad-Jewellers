@@ -1,41 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
     View, Text, StyleSheet, ImageBackground,
-    TouchableOpacity, Dimensions, ActivityIndicator
+    TouchableOpacity,
 } from "react-native";
-import Video from 'react-native-video'; // Import Video
-import { supabase } from "../lib/supabase";
-
-const { width } = Dimensions.get("window");
-
+import Video from 'react-native-video';
+import { useActiveBanner } from "../api/bannerApi";
 export default function Poster() {
-    const [banner, setBanner] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchActiveBanner();
-    }, []);
-
-    async function fetchActiveBanner() {
-        try {
-            const { data, error } = await supabase
-                .from('banners')
-                .select('*')
-                .eq('is_active', true)
-                .order('priority', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (data) setBanner(data);
-        } catch (error) {
-            console.log("Error fetching banner:", error.message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    if (loading) return <ActivityIndicator color="#000" style={{ marginVertical: 20 }} />;
-    if (!banner) return null;
+    const { data: banner,  isError } = useActiveBanner();
+    if (isError || !banner) return null;
 
     return (
         <View style={styles.container}>
@@ -45,9 +17,9 @@ export default function Poster() {
                     <Video
                         source={{ uri: banner.banner_url }}
                         style={styles.backgroundVideo}
-                        muted={false}
+                        muted={true}
                         repeat={true}
-                        resizeMode="cover"
+                        resizeMode="contain"
                         rate={1.0}
                         ignoreSilentSwitch={"obey"}
                         playInBackground={false}
@@ -89,7 +61,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         borderRadius: 20,
         overflow: 'hidden', // Crucial for video borderRadius
-        marginTop:20
+        marginTop: 20
     },
     mediaContainer: {
         flex: 1,

@@ -15,6 +15,7 @@ import AppImage from "./AppImage";
 import Colors from "../theme/Colors";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import ImageViewer from 'react-native-image-zoom-viewer';
+import FastImage from "@d11/react-native-fast-image";
 
 const { width, height: screenHeight } = Dimensions.get("window");
 
@@ -82,7 +83,7 @@ export default function Slider({ data = [] }) {
               style={{ width: ITEM_SIZE, alignItems: 'center' }}
             >
               <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
-                <AppImage source={item.image} style={styles.image} />
+                <AppImage source={item.image} style={styles.image} resizeMode={FastImage.resizeMode.contain}/>
               </Animated.View>
             </TouchableOpacity>
           );
@@ -102,6 +103,7 @@ export default function Slider({ data = [] }) {
 
       <Modal 
         visible={isGalleryVisible} 
+        statusBarTranslucent
         transparent={true} 
         animationType="fade"
         onRequestClose={() => setIsGalleryVisible(false)}
@@ -122,15 +124,12 @@ export default function Slider({ data = [] }) {
             enableSwipeDown={true}
             backgroundColor="transparent"
             saveToLocalByLongPress={false}
-            
-            // FIX: Explicit numeric height (70% of screen)
             imageWidth={width}
             imageHeight={MODAL_IMG_HEIGHT}
-
             renderImage={(props) => (
               <Image
                 source={props.source}
-                style={{ width: width, height: MODAL_IMG_HEIGHT }}
+                style={{ width: width, height: "90%" }}
                 resizeMode="contain"
               />
             )}
@@ -161,7 +160,7 @@ export default function Slider({ data = [] }) {
 const styles = StyleSheet.create({
   container: { marginTop: 20 },
   card: {
-    width: ITEM_WIDTH,
+    width: "100%",
     height: ITEM_WIDTH * 1.2,
     borderRadius: 24,
     backgroundColor: "#fff",
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
   },
   glassBackdrop: { 
     flex: 1, 
-    backgroundColor: "rgba(0, 0, 0, 0.94)" 
+    backgroundColor: "rgba(0, 0, 0, 1)" 
   },
   glassHeader: {
     width: '100%',

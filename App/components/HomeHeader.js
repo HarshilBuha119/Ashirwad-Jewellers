@@ -1,49 +1,59 @@
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
-import { fetchCart } from "../services/api";
+
+// Centralized Hook
+import { useCart } from "../api/orderApi";
+
+// Theme
 import Colors from "../theme/Colors";
+import Spacing from "../theme/Spacing";
 
 export default function HomeHeader() {
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
-  const { data: cartItems = [] } = useQuery({
-    queryKey: ['cart'],
-    queryFn: fetchCart,
-  });
+  
+  // 1. Using centralized hook (No more direct service imports)
+  const { data: cartItems = [] } = useCart();
 
-  // 2. Calculate the total quantity of items in the cart
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  // const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // 2. Logic Optimization: Memoize the count calculation
+  const cartCount = useMemo(() => 
+    cartItems.reduce((sum, item) => sum + item.quantity, 0), 
+  [cartItems]);
 
   return (
     <View style={styles.container}>
-      <View style={{ marginTop: 5 }}>
-        <Text style={styles.welcome}>Welcome 👋</Text>
-        <Text style={styles.name}>{user?.displayName || "Guest"}</Text>
+      <View style={styles.userInfo}>
+        <Text style={styles.welcomeText}>Welcome 👋</Text>
+        <Text style={styles.userNameText}>{user?.displayName || "Guest"}</Text>
       </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={()=>navigation.navigate("Products")}>
-          <Ionicons name="search-outline" size={22} />
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate("Products")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search-outline" size={22} color={Colors.black} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={{ marginLeft: 14 }}>
-          <Ionicons name="notifications-outline" size={22} />
+        <TouchableOpacity 
+          style={styles.iconMargin}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="notifications-outline" size={22} color={Colors.black} />
         </TouchableOpacity>
 
-        {/* CART BUTTON WITH BADGE */}
         <TouchableOpacity
-          style={{ marginLeft: 14 }}
+          style={styles.iconMargin}
           onPress={() => navigation.navigate("Cart")}
+          activeOpacity={0.7}
         >
           <View>
-            <Ionicons name="bag-handle-outline" color="#000" size={24} />
+            <Ionicons name="bag-handle-outline" color={Colors.black} size={24} />
             {cartCount > 0 && (
-              <View style={styles.badge}>
+              <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>{cartCount}</Text>
               </View>
             )}
@@ -56,31 +66,36 @@ export default function HomeHeader() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  welcome: {
+  userInfo: { 
+    marginTop: Spacing.xs 
+  },
+  welcomeText: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: Colors.muted,
   },
-  name: {
-    fontSize: 22, // Reduced slightly to balance with icons
+  userNameText: {
+    fontSize: 22,
     fontWeight: "700",
-    color: "#111827",
+    color: Colors.primary, // Using primary for the name
   },
-  actions: {
+  actionsContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
-  // BADGE STYLES
-  badge: {
+  iconMargin: { 
+    marginLeft: Spacing.md 
+  },
+  badgeContainer: {
     position: "absolute",
     right: -6,
     top: -4,
-    backgroundColor: Colors.text, // Your orange/primary color
+    backgroundColor: Colors.text, // Your theme's specific text color (orange/brown)
     borderRadius: 10,
     minWidth: 16,
     height: 16,
@@ -88,10 +103,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 2,
     borderWidth: 1,
-    borderColor: "#FFF",
+    borderColor: Colors.white,
   },
   badgeText: {
-    color: "white",
+    color: Colors.white,
     fontSize: 9,
     fontWeight: "bold",
   },
